@@ -1,0 +1,99 @@
+---
+title: "Prediction Project"
+author: "Ruslan Aghalarov"
+date: "10 April 2016"
+output: html_document
+---
+#Description
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) 
+
+The goal of the project is to predict the manner in which participants did the exercise. This will be "classe" variable in the training set. We will use other variables to predict with. We will create a report describing how the model was build, why the model was chosen. Model will be used to predict 20 different test cases.
+
+
+#Loading the data
+####Load libraries
+```{r results='hide', message=FALSE, warning=FALSE}
+library(randomForest)
+library(knitr)
+library(caret)
+```
+
+####Load the data
+```{r}
+trainUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainUrl), header = TRUE,  stringsAsFactors = FALSE)
+testing <- read.csv(url(testUrl), header = TRUE,  stringsAsFactors = FALSE)
+```
+
+#Data Exploration and Data Mining
+####Explore the data
+```{r}
+#dimensions of the datasets
+dim(training); dim(testing)
+#check whether column names are identical
+summary(colnames(training)==colnames(testing))
+#only 160th column is different
+```
+
+####Drop some columns with NAs
+```{r}
+#find columns with only one unique value. Columns to be dropped
+uniques <- data.frame()
+for (i in 1:dim(testing)[2]) {
+uniques[1,i] <-  length(unique(testing[,i]))  
+}
+#vector with column indexes to be removed
+del_cols <- c(1,3,4,5, which(as.vector(uniques==1)))
+#remove columns in both testing and training
+  testing <- testing[,-del_cols]
+  training <- training[,-del_cols]
+testing$user_name <- as.factor(testing$user_name)
+training$user_name <- as.factor(training$user_name)
+training$classe <- as.factor(training$classe)
+```
+
+#Random Forest
+####Build Prediction Model
+```{r}
+#sed seed for reproducibility
+set.seed(10)
+#divide train dataset into two parts. Otherwise, calculation would take centuries on my PC
+inData <- createDataPartition(training$classe, list=FALSE, p=0.20)
+#train data partition
+trainPart <- training[inData,]
+#test data partition
+testPart <- training[-inData,]
+#create Random Forest Model
+model_fit <- randomForest(classe~., data=trainPart, importance=TRUE)
+```
+
+####Results on data partition
+```{r}
+#build prediction model
+pred <- predict(model_fit, newdata = testPart)
+#Confusion Matrix
+confTable <- table(pred, testPart$classe)
+confusionMatrix(confTable)
+```
+
+With accuracy level of more than 98%, prediction model seems to work perfectly
+
+####Variable importance measured by a Random Forest
+
+```{r, fig.height=12, fig.width=10}
+varImpPlot(model_fit, main = "Importance of Variables in Prediction Model")
+```
+
+
+####Results on testing data
+```{r}
+#build prediction model
+pred2 <- predict(model_fit, newdata = testing)
+#Show predicted values
+print(pred2)
+```
+
+#Conclusion
+Random Forest Model with 54 independent variables was build to predict testing set of 20. Result was successsful with 19 correct predictions. Random Forest was chosen for following reasons: accuracy, efficiency on large datasets, provision of estimates of what variables are important. 
